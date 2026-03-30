@@ -3,23 +3,22 @@ Yinian CLI - 问答命令
 """
 import asyncio
 import sys
+from pathlib import Path
 from typing import List, Optional
 
 import click
 from rich.console import Console
 from rich.markdown import Markdown
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.syntax import Syntax
 
 from yinian.core.config import get_config
 from yinian.core.router import Router, get_router, QuestionType
+from yinian.core.input import get_input_handler
 from yinian.models import get_factory, ModelResponse
 
 console = Console()
 
 
-def print_response(response: ModelResponse, stream: bool = False):
+def print_response(response: ModelResponse, color: bool = True):
     """打印模型响应"""
     if response.error:
         console.print(f"[red]错误: {response.error}[/red]")
@@ -34,13 +33,13 @@ def print_response(response: ModelResponse, stream: bool = False):
         console.print(response.content)
     
     # 显示统计信息
-    if not stream:
+    if response.input_tokens:
         console.print()
         console.print(
-            f"[dim]模型: {response.model} | "
-            f"输入: {response.input_tokens} tokens | "
-            f"输出: {response.output_tokens} tokens | "
-            f"费用: ¥{response.cost:.6f} | "
+            f"[dim]│ 模型: {response.model} "
+            f"│ 输入: {response.input_tokens} tokens │ "
+            f"输出: {response.output_tokens} tokens │ "
+            f"费用: ¥{response.cost:.6f} │ "
             f"延迟: {response.latency_ms:.0f}ms[/dim]"
         )
 
@@ -140,6 +139,39 @@ async def ask_compare(
     return results
 
 
+def process_input(
+    question: Optional[str],
+    file_path: Optional[str],
+    input_handler
+) -> Optional[str]:
+    """处理输入，返回最终问题文本"""
+    result_parts = []
+    
+    # 1. 管道输入
+    if input_handler.is_pipe_input():
+        pipe_content = input_handler.read_stdin()
+        if pipe_content:
+            console.print("[dim]📥 检测到管道输入[/dim]")
+            result_parts.append(pipe_content)
+    
+    # 2. 文件输入
+    if file_path:
+        file_content = input_handler.read_file(file_path)
+        if file_content:
+            formatted = input_handler.format_file_content(file_path, file_content)
+            result_parts.append(formatted)
+            console.print(f"[dim]📄 已读取文件: {file_path}[/dim]")
+    
+    # 3. 命令行问题
+    if question:
+        result_parts.append(question)
+    
+    if not result_parts:
+        return None
+    
+    return "\n\n".join(result_parts)
+
+
 @click.command()
 @click.argument("question", required=False)
 @click.option("--model", "-m", "model_name", help="指定模型 (deepseek/kimi/qwen)")
@@ -148,6 +180,7 @@ async def ask_compare(
 @click.option("--fast", is_flag=True, help="快速模式（使用最便宜的模型）")
 @click.option("--best", is_flag=True, help="精准模式（使用最强模型）")
 @click.option("--dry-run", is_flag=True, help="仅显示路由结果，不实际调用")
+@click.option("--file", "-f", "file_path", help="从文件读取内容")
 @click.option("--type", "question_type", help="指定问题类型 (code/math/chinese/english/quick)")
 def ask(
     question: Optional[str],
@@ -157,6 +190,7 @@ def ask(
     fast: bool,
     best: bool,
     dry_run: bool,
+    file_path: Optional[str],
     question_type: Optional[str]
 ):
     """💬 向 AI 提问
@@ -167,20 +201,32 @@ def ask(
     
       yinian "翻译：Hello World" --model kimi
     
-      yinian "分析这段代码" --compare --models deepseek kimi qwen
-    """
-    # 检查是否有输入
-    if not question:
-        # 尝试从 stdin 读取
-        if not sys.stdin.isatty():
-            question = sys.stdin.read().strip()
-        
-        if not question:
-            console.print("[red]错误: 请提供问题或通过管道输入[/red]")
-            return
+      yinian "分析这段代码" --compare
     
+      cat error.log | yinian "分析这个报错"
+    
+      yinian --file error.log "分析这个错误"
+    """
+    input_handler = get_input_handler()
     router = get_router()
     config = get_config()
+    
+    # 处理输入（管道 + 文件 + 命令行）
+    full_question = process_input(question, file_path, input_handler)
+    
+    if not full_question:
+        # 尝试仅从 stdin 读取
+        if input_handler.is_pipe_input():
+            full_question = input_handler.read_stdin()
+        
+        if not full_question:
+            console.print("[red]错误: 请提供问题、管道输入或文件[/red]")
+            console.print("示例: yinian \"你的问题\" 或 cat file.txt | yinian")
+            return
+    
+    # 显示完整问题（如果来自文件或管道）
+    if file_path or input_handler.is_pipe_input():
+        console.print(f"\n[bold]问题:[/bold]\n[dim]{full_question[:200]}{'...' if len(full_question) > 200 else ''}[/dim]\n")
     
     # 处理 --fast 和 --best
     if fast:
@@ -192,7 +238,7 @@ def ask(
     
     # Dry run 模式
     if dry_run:
-        result = router.route(question)
+        result = router.route(full_question)
         console.print(f"\n[bold cyan]🔍 路由分析结果[/bold cyan]")
         console.print(f"  问题类型: {result.question_type.value}")
         console.print(f"  置信度: {result.confidence:.0%}")
@@ -204,7 +250,7 @@ def ask(
     
     # 对比模式
     if compare_models:
-        responses = asyncio.run(ask_compare(question, list(compare_models), stream))
+        responses = asyncio.run(ask_compare(full_question, list(compare_models), stream))
         
         for i, response in enumerate(responses):
             console.print(f"\n[bold cyan]═══ {response.model} ═══[/bold cyan]")
@@ -212,7 +258,7 @@ def ask(
     
     # 单模型模式
     else:
-        response = asyncio.run(ask_single(question, model_name, stream, router))
+        response = asyncio.run(ask_single(full_question, model_name, stream, router))
         print_response(response, stream)
 
 
