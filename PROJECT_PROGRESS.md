@@ -13,7 +13,7 @@
 |------|--------|--------|------|
 | 1️⃣ 项目初始化 | 8 | 5 | ▓▓▓▓▓▓░░░░ 62.5% |
 | 2️⃣ 配置系统 | 12 | 12 | ▓▓▓▓▓▓▓▓▓▓ 100% |
-| 3️⃣ 模型接入 | 18 | 0 | ░░░░░░░░░░ 0% |
+| 3️⃣ 模型接入 | 18 | 18 | ▓▓▓▓▓▓▓▓▓▓ 100% |
 | 4️⃣ 智能路由 | 10 | 0 | ░░░░░░░░░░ 0% |
 | 5️⃣ CLI 命令 | 15 | 0 | ░░░░░░░░░░ 0% |
 | 6️⃣ 流式输出 | 8 | 0 | ░░░░░░░░░░ 0% |
@@ -21,7 +21,7 @@
 | 8️⃣ 本地缓存 | 10 | 0 | ░░░░░░░░░░ 0% |
 | 9️⃣ 对话管理 | 8 | 0 | ░░░░░░░░░░ 0% |
 | 🔟 用量统计 | 8 | 0 | ░░░░░░░░░░ 0% |
-| **总计** | **103** | **19** | **18%** |
+| **总计** | **103** | **37** | **36%** |
 
 ---
 
@@ -78,40 +78,40 @@
 ## 模块 3️⃣：模型接入
 
 ### 3.1 模型基类
-- [ ] `BaseModel` 抽象基类
-- [ ] `ModelResponse` 响应格式定义
-- [ ] `ModelConfig` 模型配置
-- [ ] 统一错误处理
-- [ ] 超时配置
-- [ ] 重试机制
+- [x] `BaseModel` 抽象基类 ✅
+- [x] `ModelResponse` 响应格式定义 ✅
+- [x] `ModelConfig` 模型配置 ✅
+- [x] 统一错误处理 ✅
+- [x] 超时配置 ✅
+- [x] 重试机制 ✅
 
 ### 3.2 DeepSeek 适配器
-- [ ] API endpoint: `https://api.deepdeepseek.com/v1`
-- [ ] Chat completion 接口
-- [ ] Stream 模式支持
-- [ ] Token 计算
-- [ ] 费用计算
-- [ ] 错误处理（余额不足、限流等）
+- [x] API endpoint: `https://api.deepseek.com/v1` ✅
+- [x] Chat completion 接口 ✅
+- [x] Stream 模式支持 ✅
+- [x] Token 计算 ✅
+- [x] 费用计算 ✅
+- [x] 错误处理（余额不足、限流等）✅
 
 ### 3.3 Kimi (Moonshot) 适配器
-- [ ] API endpoint: `https://api.moonshot.cn/v1`
-- [ ] Chat completion 接口
-- [ ] Stream 模式支持
-- [ ] Token 计算
-- [ ] 费用计算
+- [x] API endpoint: `https://api.moonshot.cn/v1` ✅
+- [x] Chat completion 接口 ✅
+- [x] Stream 模式支持 ✅
+- [x] Token 计算 ✅
+- [x] 费用计算 ✅
 
 ### 3.4 通义千问 (Qwen) 适配器
-- [ ] API endpoint: `https://dashscope.aliyuncs.com/compatible-mode/v1`
-- [ ] Chat completion 接口
-- [ ] Stream 模式支持
-- [ ] Token 计算
-- [ ] 费用计算
+- [x] API endpoint: `https://dashscope.aliyuncs.com/compatible-mode/v1` ✅
+- [x] Chat completion 接口 ✅
+- [x] Stream 模式支持 ✅
+- [x] Token 计算 ✅
+- [x] 费用计算 ✅
 
 ### 3.5 模型工厂
-- [ ] `ModelFactory` 工厂类
-- [ ] `list_models()` 列出可用模型
-- [ ] `get_model(name)` 获取模型实例
-- [ ] 模型健康检查
+- [x] `ModelFactory` 工厂类 ✅
+- [x] `list_models()` 列出可用模型 ✅
+- [x] `get_model(name)` 获取模型实例 ✅
+- [x] 模型健康检查 ✅
 
 ---
 
@@ -316,11 +316,11 @@
 - [x] API Key 管理 ✅
 - [x] 默认配置生成 ✅
 
-#### Day 3：模型接入
-- [ ] 模型基类设计
-- [ ] DeepSeek 适配器
-- [ ] Kimi 适配器
-- [ ] 通义千问适配器
+#### Day 3：模型接入 ✅
+- [x] 模型基类设计 ✅
+- [x] DeepSeek 适配器 ✅
+- [x] Kimi 适配器 ✅
+- [x] 通义千问适配器 ✅
 
 #### Day 4：智能路由
 - [ ] 问题分类器
@@ -376,7 +376,8 @@
 - ✅ 项目初始化
 - 📋 进度文档创建
 - ✅ Day 1 完成：目录结构 + pyproject.toml
-- ✅ Day 2 完成：配置系统 + 3 个模型（DeepSeek/Kimi/Qwen）预配置
+- ✅ Day 2 完成：配置系统 + 3 个模型预配置
+- ✅ Day 3 完成：模型接入（BaseModel + DeepSeek/Kimi/Qwen 适配器 + 工厂）
 
 ---
 
