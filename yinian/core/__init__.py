@@ -6,6 +6,8 @@ from yinian.core.router import Router, get_router, QuestionClassifier, QuestionT
 from yinian.core.session import Session, SessionManager, get_session_manager, Message
 from yinian.core.stats import Stats, get_stats, UsageRecord
 from yinian.core.output import StreamOutput, stream_to_console, print_response_pretty
+from yinian.core.cache import Cache, get_cache, CacheEntry, CacheDB
+from yinian.core.input import InputHandler, get_input_handler
 
 __all__ = [
     # Config
@@ -29,4 +31,12 @@ __all__ = [
     "StreamOutput",
     "stream_to_console",
     "print_response_pretty",
+    # Cache
+    "Cache",
+    "get_cache",
+    "CacheEntry",
+    "CacheDB",
+    # Input
+    "InputHandler",
+    "get_input_handler",
 ]

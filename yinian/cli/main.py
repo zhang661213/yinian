@@ -10,6 +10,7 @@ from yinian.cli.config import config_group
 from yinian.cli.ask import ask, models
 from yinian.cli.session import session_group
 from yinian.cli.stats import stats_group
+from yinian.cli.cache import cache_group
 
 console = Console()
 
@@ -36,6 +37,7 @@ cli.add_command(ask, name="ask")
 cli.add_command(models)
 cli.add_command(session_group, name="session")
 cli.add_command(stats_group, name="stats")
+cli.add_command(cache_group, name="cache")
 
 
 @cli.command(name="doctor")
@@ -44,6 +46,7 @@ def doctor():
     import platform
     from yinian.core.config import get_config
     from yinian.models import get_factory
+    from yinian.core.cache import get_cache
     
     console.print("\n[bold cyan]🔍 一念 环境检查[/bold cyan]\n")
     
@@ -65,6 +68,13 @@ def doctor():
         status = "[green]✓ 已设置[/green]" if has_key else "[red]✗ 未设置[/red]"
         display = info["display_name"] if info else name
         console.print(f"  {display}: {status}")
+    
+    # 缓存状态
+    cache = get_cache()
+    cache_stats = cache.stats()
+    cache_status = "[green]✓ 已启用[/green]" if cache.enabled else "[red]✗ 已禁用[/red]"
+    console.print(f"\n[yellow]缓存状态:[/yellow] {cache_status}")
+    console.print(f"[yellow]缓存条目:[/yellow] {cache_stats['total_count']}")
     
     console.print()
 
