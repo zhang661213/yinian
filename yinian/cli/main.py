@@ -8,6 +8,8 @@ from rich.console import Console
 
 from yinian.cli.config import config_group
 from yinian.cli.ask import ask, models
+from yinian.cli.session import session_group
+from yinian.cli.stats import stats_group
 
 console = Console()
 
@@ -32,6 +34,8 @@ def cli():
 cli.add_command(config_group)
 cli.add_command(ask, name="ask")
 cli.add_command(models)
+cli.add_command(session_group, name="session")
+cli.add_command(stats_group, name="stats")
 
 
 @cli.command(name="doctor")
