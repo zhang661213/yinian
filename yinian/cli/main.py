@@ -7,6 +7,7 @@ import click
 from rich.console import Console
 
 from yinian.cli.config import config_group
+from yinian.cli.ask import ask, models
 
 console = Console()
 
@@ -21,20 +22,24 @@ def cli():
     示例:
       yinian "如何用 Python 写快排？"
       yinian "翻译：Hello World" --model kimi
+      yinian "代码审查" --compare
       cat error.log | yinian "分析这个报错"
     """
     pass
 
 
-# 注册 config 子命令
+# 注册子命令
 cli.add_command(config_group)
+cli.add_command(ask, name="ask")
+cli.add_command(models)
 
 
 @cli.command(name="doctor")
 def doctor():
-    """检查环境配置"""
+    """🔍 检查环境配置"""
     import platform
     from yinian.core.config import get_config
+    from yinian.models import get_factory
     
     console.print("\n[bold cyan]🔍 一念 环境检查[/bold cyan]\n")
     
@@ -47,12 +52,15 @@ def doctor():
     console.print(f"[yellow]配置目录:[/yellow] {config.config_dir}")
     console.print(f"[yellow]配置文件:[/yellow] {config.config_file}")
     
-    # API Key 状态
+    # 模型状态
+    factory = get_factory()
     console.print("\n[yellow]API Key 状态:[/yellow]")
-    for model in config.list_models():
-        api_key = config.get_api_key(model)
-        status = "[green]✓ 已设置[/green]" if api_key else "[red]✗ 未设置[/red]"
-        console.print(f"  {model}: {status}")
+    for name in factory.list_models():
+        info = factory.get_model_info(name)
+        has_key = info["has_api_key"] if info else False
+        status = "[green]✓ 已设置[/green]" if has_key else "[red]✗ 未设置[/red]"
+        display = info["display_name"] if info else name
+        console.print(f"  {display}: {status}")
     
     console.print()
 
