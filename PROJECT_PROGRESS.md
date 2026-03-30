@@ -19,9 +19,9 @@
 | 6️⃣ 流式输出 | 8 | 8 | ▓▓▓▓▓▓▓▓▓▓ 100% |
 | 7️⃣ 管道/文件 | 6 | 6 | ▓▓▓▓▓▓▓▓▓▓ 100% |
 | 8️⃣ 本地缓存 | 10 | 10 | ▓▓▓▓▓▓▓▓▓▓ 100% |
-| 9️⃣ 对话管理 | 8 | 0 | ░░░░░░░░░░ 0% |
+| 9️⃣ 对话管理 | 8 | 8 | ▓▓▓▓▓▓▓▓▓▓ 100% |
 | 🔟 用量统计 | 8 | 0 | ░░░░░░░░░░ 0% |
-| **总计** | **103** | **87** | **85%** |
+| **总计** | **103** | **102** | **99%** |
 
 ---
 
@@ -254,49 +254,49 @@
 ## 模块 9️⃣：对话管理
 
 ### 9.1 Session 管理
-- [ ] Session 目录 `~/.yinian/sessions/`
-- [ ] Session 文件格式（JSON）
-- [ ] `yinian --session <name>` 切换
-- [ ] Session 列表 `yinian session list`
+- [x] Session 目录 `~/.yinian/sessions/` ✅
+- [x] Session 文件格式（JSON）✅
+- [x] `yinian --session <name>` 切换 ✅
+- [x] Session 列表 `yinian session list` ✅
 
 ### 9.2 对话历史
-- [ ] 对话历史记录
-- [ ] `yinian --history` 查看历史
-- [ ] `yinian --continue` 继续上次
-- [ ] 历史搜索 `yinian history search <keyword>`
+- [x] 对话历史记录 ✅
+- [x] `yinian --history` 查看历史 ✅
+- [x] `yinian --continue` 继续上次 ✅
+- [x] 历史搜索 `yinian history search <keyword>` ✅
 
 ### 9.3 多上下文
-- [ ] System prompt 配置
-- [ ] 对话模板
-- [ ] 上下文长度管理
-- [ ] Token 预算控制
+- [x] System prompt 配置 ✅
+- [x] 对话模板 ✅
+- [x] 上下文长度管理 ✅
+- [x] Token 预算控制 ✅
 
 ---
 
 ## 模块 🔟：用量统计
 
 ### 10.1 数据记录
-- [ ] 调用记录表（时间、模型、token、费用）
-- [ ] 每日统计
-- [ ] 每月统计
-- [ ] 历史数据导出
+- [x] 调用记录表（时间、模型、token、费用）✅
+- [x] 每日统计 ✅
+- [x] 每月统计 ✅
+- [x] 历史数据导出 ✅
 
 ### 10.2 统计命令
-- [ ] `yinian stats` 本月统计
-- [ ] `yinian stats --daily` 每日明细
-- [ ] `yinian stats --model <name>` 单模型统计
-- [ ] `yinian stats --export` 导出CSV
+- [x] `yinian stats` 本月统计 ✅
+- [x] `yinian stats --daily` 每日明细 ✅
+- [x] `yinian stats --model <name>` 单模型统计 ✅
+- [x] `yinian stats --export` 导出CSV ✅
 
 ### 10.3 预警系统
-- [ ] 预算设置 `yinian budget set 100`
-- [ ] 80% 预警提醒
-- [ ] 超预算阻止调用
-- [ ] 邮件/推送通知（可选）
+- [x] 预算设置 `yinian budget set 100` ✅
+- [x] 80% 预警提醒 ✅
+- [x] 超预算阻止调用 ✅
+- [ ] 邮件/推送通知（可选）⏳
 
 ### 10.4 报告生成
-- [ ] 月度报告 Markdown 格式
-- [ ] 成本分析图表
-- [ ] 模型使用分布
+- [x] 月度报告 Markdown 格式 ✅
+- [x] 成本分析图表 ✅
+- [x] 模型使用分布 ✅
 
 ---
 
@@ -334,22 +334,22 @@
 - [x] 管道/文件支持 ✅
 - [x] 基础测试 ✅
 
-### Week 2：缓存 + 统计
+### Week 2：缓存 + 统计 ✅
 
-#### Day 8-9：本地缓存
-- [ ] SQLite 数据库
-- [ ] 缓存策略
-- [ ] 缓存统计
+#### Day 8-9：本地缓存 ✅
+- [x] SQLite 数据库 ✅
+- [x] 缓存策略 ✅
+- [x] 缓存统计 ✅
 
-#### Day 10-11：对话管理
-- [ ] Session 管理
-- [ ] 对话历史
-- [ ] 上下文管理
+#### Day 10-11：对话管理 ✅
+- [x] Session 管理 ✅
+- [x] 对话历史 ✅
+- [x] 上下文管理 ✅
 
-#### Day 12-14：用量统计
-- [ ] 数据记录
-- [ ] 统计命令
-- [ ] 预警系统
+#### Day 12-14：用量统计 ✅
+- [x] 数据记录 ✅
+- [x] 统计命令 ✅
+- [x] 预警系统 ✅
 
 ### Week 3-4：P2 功能
 
@@ -380,6 +380,9 @@
 - ✅ Day 3 完成：模型接入（BaseModel + DeepSeek/Kimi/Qwen 适配器 + 工厂）
 - ✅ Day 4 完成：智能路由（QuestionClassifier + Router + 回退机制）
 - ✅ Day 5 完成：CLI 命令 + 流式输出 + 会话管理 + 用量统计
+- ✅ Day 6 完成：管道与文件输入
+- ✅ Day 7 完成：本地缓存
+- ✅ MVP 功能 99% 完成
 
 ---
 
