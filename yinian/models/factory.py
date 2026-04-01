@@ -1,188 +1,157 @@
 """
-Yinian 模型工厂
-负责模型的创建、管理和路由
+Model Factory - 模型工厂
 """
-from typing import Dict, List, Optional, Type
-
-from loguru import logger
+import threading
+from typing import Dict, List, Optional, Type, Any
 
 from yinian.core.config import Config, get_config
-from yinian.models.base import BaseModel, ModelResponse
+from yinian.models.base import BaseModel
+
 from yinian.models.deepseek import DeepSeekModel
 from yinian.models.kimi import KimiModel
 from yinian.models.qwen import QwenModel
+from yinian.models.wenxin import WenxinModel
+from yinian.models.zhipu import ZhipuModel
+from yinian.models.minimax import MiniMaxModel
+from yinian.models.hunyuan import HunyuanModel
+from yinian.models.doubao import DoubaoModel
+from yinian.models.llama import LlamaModel
+from yinian.models.deepseek_reasoner import DeepSeekReasonerModel
 
+
+# 全局锁
+_model_lock = threading.Lock()
 
 # 模型注册表
 MODEL_REGISTRY: Dict[str, Type[BaseModel]] = {
     "deepseek": DeepSeekModel,
+    "deepseek-r1": DeepSeekReasonerModel,
     "kimi": KimiModel,
     "qwen": QwenModel,
+    "wenxin": WenxinModel,
+    "zhipu": ZhipuModel,
+    "minimax": MiniMaxModel,
+    "hunyuan": HunyuanModel,
+    "doubao": DoubaoModel,
+    "llama": LlamaModel,
 }
 
 
 class ModelFactory:
-    """模型工厂类"""
+    """模型工厂"""
     
     def __init__(self, config: Optional[Config] = None):
         self.config = config or get_config()
-        self._models: Dict[str, BaseModel] = {}
+        self._cache: Dict[str, BaseModel] = {}
+    
+    def get_model(self, name: str) -> Optional[BaseModel]:
+        """获取模型实例（带缓存）"""
+        if name in self._cache:
+            return self._cache[name]
+        
+        model_cls = MODEL_REGISTRY.get(name)
+        if not model_cls:
+            return None
+        
+        cfg = self.config.get_model_config(name)
+        if not cfg:
+            return None
+        
+        try:
+            model = model_cls(
+                api_key=cfg.get("api_key", ""),
+                model=cfg.get("model", ""),
+                base_url=cfg.get("base_url", ""),
+                timeout=cfg.get("timeout", 60),
+            )
+            self._cache[name] = model
+            return model
+        except Exception:
+            return None
     
     def list_models(self) -> List[str]:
-        """列出所有可用的模型"""
+        """列出所有注册的模型"""
         return list(MODEL_REGISTRY.keys())
     
     def list_enabled_models(self) -> List[str]:
-        """列出所有已启用且已配置 API Key 的模型"""
+        """列出所有已配置的模型（不看 API Key 是否存在，用于路由决策）"""
         enabled = []
-        for name in MODEL_REGISTRY.keys():
-            model_cfg = self.config.get_model_config(name)
-            if model_cfg and model_cfg.get("enabled", True):
-                api_key = self.config.get_api_key(name)
-                if api_key:
-                    enabled.append(name)
+        for name in self.list_models():
+            cfg = self.config.get_model_config(name)
+            if not cfg:
+                continue
+            # 本地模型（api_key="local"）也加入列表参与路由
+            raw_key = cfg.get("api_key", "") or ""
+            if raw_key.lower() == "local":
+                continue  # 本地模型不加入云端路由池
+            enabled.append(name)
         return enabled
     
-    def get_model(self, name: str) -> Optional[BaseModel]:
-        """
-        获取模型实例（带缓存）
-        
-        Args:
-            name: 模型名称 (deepseek, kimi, qwen)
-            
-        Returns:
-            BaseModel: 模型实例，如果未注册或未启用则返回 None
-        """
-        # 检查是否在注册表中
-        if name not in MODEL_REGISTRY:
-            logger.error(f"未知模型: {name}")
-            return None
-        
-        # 检查是否已缓存
-        if name in self._models:
-            return self._models[name]
-        
-        # 检查配置
-        model_cfg = self.config.get_model_config(name)
-        if not model_cfg:
-            logger.error(f"模型 {name} 未在配置中找到")
-            return None
-        
-        if not model_cfg.get("enabled", True):
-            logger.error(f"模型 {name} 已禁用")
-            return None
-        
-        api_key = self.config.get_api_key(name)
-        if not api_key:
-            logger.warning(f"模型 {name} 未设置 API Key")
-            # 返回实例但不包含 API Key
-            model_class = MODEL_REGISTRY[name]
-            model = model_class(api_key="")
-            self._models[name] = model
-            return model
-        
-        # 创建模型实例
-        model_class = MODEL_REGISTRY[name]
-        model = model_class(
-            api_key=api_key,
-            base_url=model_cfg.get("base_url", ""),
-            model=model_cfg.get("model", ""),
-            cost_per_1k_input=model_cfg.get("cost_per_1k_input", 0),
-            cost_per_1k_output=model_cfg.get("cost_per_1k_output", 0),
-            max_tokens=model_cfg.get("max_tokens", 4096),
-            timeout=model_cfg.get("timeout", 60),
-        )
-        
-        self._models[name] = model
-        logger.debug(f"创建模型实例: {name}")
-        
-        return model
-    
-    def create_model(self, name: str) -> Optional[BaseModel]:
-        """
-        创建新的模型实例（不使用缓存）
-        
-        Args:
-            name: 模型名称
-            
-        Returns:
-            BaseModel: 新模型实例
-        """
-        if name not in MODEL_REGISTRY:
-            return None
-        
-        model_cfg = self.config.get_model_config(name)
-        if not model_cfg:
-            return None
-        
-        api_key = self.config.get_api_key(name)
-        
-        model_class = MODEL_REGISTRY[name]
-        return model_class(
-            api_key=api_key or "",
-            base_url=model_cfg.get("base_url", ""),
-            model=model_cfg.get("model", ""),
-        )
-    
-    async def health_check_all(self) -> Dict[str, bool]:
-        """检查所有已配置模型的状态"""
-        results = {}
-        
-        for name in MODEL_REGISTRY.keys():
-            model = self.get_model(name)
-            if model and self.config.get_api_key(name):
-                results[name] = await model.health_check()
-            else:
-                results[name] = False
-        
-        return results
-    
-    def clear_cache(self) -> None:
-        """清除模型缓存"""
-        self._models.clear()
-        logger.debug("模型缓存已清除")
-    
-    def get_model_info(self, name: str) -> Optional[Dict]:
+    def get_model_info(self, name: str) -> Optional[Dict[str, Any]]:
         """获取模型信息"""
-        if name not in MODEL_REGISTRY:
+        if name not in self.list_models():
+            return None
+        cfg = self.config.get_model_config(name)
+        if not cfg:
             return None
         
-        model_cfg = self.config.get_model_config(name)
-        if not model_cfg:
-            return None
-        
-        model_class = MODEL_REGISTRY[name]
+        model = self.get_model(name)
+        # api_key 为 "local" 表示本地模型，不算有 API Key
+        raw_key = cfg.get("api_key", "") or ""
+        is_local = raw_key.lower() == "local"
+        # has_key 只看配置文件，不依赖 model 对象是否创建成功
+        has_key = bool(raw_key and not is_local)
         
         return {
-            "name": name,
-            "display_name": model_class.display_name,
-            "model_id": model_cfg.get("model", ""),
-            "enabled": model_cfg.get("enabled", True),
-            "has_api_key": bool(self.config.get_api_key(name)),
-            "cost_per_1k_input": model_cfg.get("cost_per_1k_input", 0),
-            "cost_per_1k_output": model_cfg.get("cost_per_1k_output", 0),
-            "max_tokens": model_cfg.get("max_tokens", 4096),
+            "name": cfg.get("name", name),
+            "model_id": cfg.get("model", ""),
+            "display_name": cfg.get("name", name),
+            "has_api_key": has_key,
+            "is_local": is_local,
+            "cost_per_1k_input": cfg.get("cost_per_1k_input", 0),
+            "cost_per_1k_output": cfg.get("cost_per_1k_output", 0),
         }
     
-    def get_all_models_info(self) -> List[Dict]:
-        """获取所有模型的信息"""
-        return [
-            self.get_model_info(name)
-            for name in MODEL_REGISTRY.keys()
-            if self.get_model_info(name) is not None
-        ]
+    def find_cheapest_enabled_model(self) -> Optional[str]:
+        """查找费用最低的可用模型（已配置 API Key）"""
+        candidates = []
+        for name in self.list_enabled_models():
+            info = self.get_model_info(name)
+            if not info or not info["has_api_key"]:
+                continue
+            total = info["cost_per_1k_input"] + info["cost_per_1k_output"]
+            candidates.append((total, name))
+        
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x[0])
+        return candidates[0][1]
     
-    def __repr__(self) -> str:
-        return f"<ModelFactory models={list(self._models.keys())}>"
+    def find_cheapest_any_model(self) -> Optional[str]:
+        """查找费用最低的任意模型（不考虑 API Key）"""
+        candidates = []
+        for name in self.list_models():
+            cfg = self.config.get_model_config(name)
+            if not cfg:
+                continue
+            total = cfg.get("cost_per_1k_input", 0) + cfg.get("cost_per_1k_output", 0)
+            candidates.append((total, name))
+        
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x[0])
+        return candidates[0][1]
 
 
-# 全局工厂实例
+# 全局单例
 _factory: Optional[ModelFactory] = None
 
 
 def get_factory() -> ModelFactory:
-    """获取全局模型工厂实例"""
+    """获取模型工厂单例"""
     global _factory
     if _factory is None:
-        _factory = ModelFactory()
+        with _model_lock:
+            if _factory is None:
+                _factory = ModelFactory()
     return _factory

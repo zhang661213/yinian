@@ -72,8 +72,8 @@ class BaseModel(ABC):
     
     @property
     def client(self) -> httpx.AsyncClient:
-        """获取 HTTP 客户端（延迟初始化）"""
-        if self._client is None:
+        """获取 HTTP 客户端（延迟初始化，自动重建已关闭的连接）"""
+        if self._client is None or (hasattr(self._client, 'is_closed') and self._client.is_closed):
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self.timeout),
                 follow_redirects=True,
@@ -153,9 +153,10 @@ class BaseModel(ABC):
         """健康检查"""
         try:
             # 发送一个简单的请求来验证 API Key 和连接
+            # 不传 max_tokens，让各模型用自己的默认值
             response = await self.chat(
                 messages=[{"role": "user", "content": "hi"}],
-                max_tokens=5
+                stream=False
             )
             return response.error is None
         except Exception as e:
@@ -192,7 +193,8 @@ class RetryHandler:
         *args,
         **kwargs
     ) -> Any:
-        """执行带重试的函数"""
+        """执行带重试的函数（异步安全）"""
+        import asyncio
         last_exception = None
         
         for attempt in range(self.max_retries + 1):
@@ -206,7 +208,7 @@ class RetryHandler:
                         f"请求失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}. "
                         f"{delay:.1f}秒后重试..."
                     )
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)  # 异步 sleep，不阻塞事件循环
                 else:
                     logger.error(f"请求失败，已达到最大重试次数: {e}")
         

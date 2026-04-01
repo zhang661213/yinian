@@ -22,12 +22,16 @@ class QwenModel(BaseModel):
     max_tokens = 8192
     timeout = 60
     
-    # 支持的模型列表
+    # 支持的模型列表（2025年最新，数据来源：阿里云百炼官网）
     SUPPORTED_MODELS = {
-        "qwen-turbo": {"name": "Qwen Turbo", "max_tokens": 8192, "cost_in": 0.002, "cost_out": 0.006},
-        "qwen-plus": {"name": "Qwen Plus", "max_tokens": 32768, "cost_in": 0.004, "cost_out": 0.012},
-        "qwen-max": {"name": "Qwen Max", "max_tokens": 8192, "cost_in": 0.02, "cost_out": 0.06},
-        "qwen-max-longcontext": {"name": "Qwen Max (长文本)", "max_tokens": 28672, "cost_in": 0.02, "cost_out": 0.06},
+        # Qwen3.5 系列
+        "qwen3.5-flash": {"name": "Qwen3.5 Flash", "max_tokens": 8192, "cost_in": 0.0002, "cost_out": 0.002},
+        "qwen3.5-plus": {"name": "Qwen3.5 Plus", "max_tokens": 8192, "cost_in": 0.0008, "cost_out": 0.0048},
+        # Qwen2.5 系列
+        "qwen-turbo": {"name": "Qwen2.5 Turbo", "max_tokens": 8192, "cost_in": 0.002, "cost_out": 0.006},
+        "qwen-plus": {"name": "Qwen2.5 Plus", "max_tokens": 32768, "cost_in": 0.004, "cost_out": 0.012},
+        "qwen-max": {"name": "Qwen2.5 Max", "max_tokens": 8192, "cost_in": 0.1, "cost_out": 0.3},
+        "qwen-max-longcontext": {"name": "Qwen Max 长文本", "max_tokens": 28672, "cost_in": 0.1, "cost_out": 0.3},
     }
     
     def __init__(

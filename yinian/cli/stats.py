@@ -108,3 +108,30 @@ def stats_export(path: str):
     stats.export_csv(export_path)
     
     console.print(f"[green]✓ 统计数据已导出到: {export_path}[/green]")
+
+
+def stats_summary():
+    """显示简要用量统计（供 REPL 使用）"""
+    stats = get_stats()
+    config = get_config()
+    
+    summary = stats.get_summary()
+    model_stats = stats.get_model_breakdown()
+    
+    console.print(f"\n[bold cyan]📊 用量统计[/bold cyan]\n")
+    
+    monthly_limit = summary.get("monthly_limit", 100.0)
+    monthly_cost = summary.get("monthly_cost", 0)
+    pct = (monthly_cost / monthly_limit * 100) if monthly_limit > 0 else 0
+    
+    bar = "▓" * int(pct / 5) + "░" * (20 - int(pct / 5))
+    console.print(f"[yellow]本月:[/yellow] {bar} {pct:.0f}%  ¥{monthly_cost:.4f} / ¥{monthly_limit:.2f}")
+    console.print(f"[yellow]总计:[/yellow] ¥{summary.get('total_cost', 0):.4f}")
+    console.print(f"[yellow]请求:[/yellow] {summary.get('total_requests', 0)} 次")
+    console.print(f"[yellow]Token:[/yellow] {summary.get('total_tokens', 0):,} 总\n")
+    
+    if model_stats:
+        console.print("[bold]各模型费用:[/bold]")
+        for s in model_stats[:5]:
+            console.print(f"  {s['model']}: ¥{s['total_cost']:.4f} ({s['request_count']}次)")
+        console.print()

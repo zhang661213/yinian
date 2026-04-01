@@ -67,6 +67,15 @@
 - [x] `yinian config get <key>` 命令 ✅
 - [x] `yinian config list` 命令 ✅
 - [x] API Key 加密存储（可选）✅
+- [x] `yinian config add-model` 添加自定义模型 ✅
+- [x] `yinian config remove-model` 删除模型 ✅
+- [x] `yinian config edit-model` 编辑模型参数 ✅
+
+### 2.4 REPL 交互模式
+- [x] `yinian` 直接进入交互式对话 ✅
+- [x] 多轮对话支持（上下文记忆）✅
+- [x] /model, /models, /stats, /clear, /exit 等内置命令 ✅
+- [x] 流式输出 ✅
 
 ### 2.4 模型费用配置
 - [x] 各模型单价配置 ✅
@@ -366,7 +375,9 @@
 
 | Bug ID | 描述 | 状态 | 修复版本 |
 |--------|------|------|----------|
-| - | - | - | - |
+| BUG-001 | MiniMax API 响应解析错误：流式响应 content-type 为 event-stream，但代码先调用 response.json() 导致失败 | ✅ 已修复 | v0.1.1 |
+| BUG-002 | MiniMax 流式 chunk 数据结构为 `choices[0].delta.content`，原代码错误解析为 `messages[0].text` | ✅ 已修复 | v0.1.1 |
+| BUG-003 | MiniMax base_url 缺少版本号 v1 | ✅ 已修复 | v0.1.1 |
 
 ---
 

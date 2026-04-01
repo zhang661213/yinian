@@ -59,6 +59,12 @@ def get_sessions_dir() -> Path:
     return config_dir / "sessions"
 
 
+def get_skills_dir() -> Path:
+    """获取技能目录 ~/.yinian/skills"""
+    config_dir = get_config_dir()
+    return config_dir / "skills"
+
+
 class Config:
     """Yinian 配置类"""
     
@@ -72,17 +78,30 @@ class Config:
             "color": True,
         },
         "models": {
+            # ─── DeepSeek ───────────────────────────────────────────────
             "deepseek": {
-                "name": "DeepSeek",
+                "name": "DeepSeek V3",
                 "api_key": "",
                 "base_url": "https://api.deepseek.com/v1",
                 "model": "deepseek-chat",
                 "cost_per_1k_input": 0.001,
                 "cost_per_1k_output": 0.002,
-                "max_tokens": 4096,
+                "max_tokens": 64000,
                 "timeout": 60,
                 "enabled": True,
             },
+            "deepseek-r1": {
+                "name": "DeepSeek R1 (推理)",
+                "api_key": "",
+                "base_url": "https://api.deepseek.com",
+                "model": "deepseek-reasoner",
+                "cost_per_1k_input": 0.001,
+                "cost_per_1k_output": 0.004,
+                "max_tokens": 64000,
+                "timeout": 120,
+                "enabled": True,
+            },
+            # ─── Kimi (Moonshot) ────────────────────────────────────────
             "kimi": {
                 "name": "Kimi (Moonshot)",
                 "api_key": "",
@@ -94,15 +113,93 @@ class Config:
                 "timeout": 60,
                 "enabled": True,
             },
+            # ─── 阿里云通义千问 ──────────────────────────────────────────
             "qwen": {
-                "name": "通义千问",
+                "name": "通义千问 Qwen",
                 "api_key": "",
                 "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                "model": "qwen-turbo",
-                "cost_per_1k_input": 0.002,
-                "cost_per_1k_output": 0.006,
+                "model": "qwen3.5-flash",
+                "cost_per_1k_input": 0.0002,
+                "cost_per_1k_output": 0.002,
                 "max_tokens": 8192,
                 "timeout": 60,
+                "enabled": True,
+            },
+            # ─── 百度文心一言 ────────────────────────────────────────────
+            "wenxin": {
+                "name": "文心一言 ERNIE",
+                "api_key": "",
+                "secret_key": "",
+                "base_url": "https://qianfan.baidubce.com/v2",
+                "model": "ernie-4.0-8k",
+                "cost_per_1k_input": 0.012,
+                "cost_per_1k_output": 0.024,
+                "max_tokens": 8192,
+                "timeout": 60,
+                "enabled": True,
+            },
+            # ─── 智谱 GLM ───────────────────────────────────────────────
+            "zhipu": {
+                "name": "智谱 GLM",
+                "api_key": "",
+                "base_url": "https://open.bigmodel.cn/api/paas/v4",
+                "model": "glm-4-flash",
+                "cost_per_1k_input": 0.0001,
+                "cost_per_1k_output": 0.0001,
+                "max_tokens": 128000,
+                "timeout": 60,
+                "enabled": True,
+            },
+            # ─── MiniMax ─────────────────────────────────────────────────
+            # M2.7/M2.5/M2.1 采用 Token Plan 订阅制（¥29/49/119/月）
+            # Starter=40次/5h, Plus=100次/5h, Max=300次/5h
+            "minimax": {
+                "name": "MiniMax M2.7",
+                "api_key": "",
+                "group_id": "",
+                "base_url": "https://api.minimax.chat/v1",
+                "model": "MiniMax-M2.7",
+                "cost_per_1k_input": 0.0,    # 订阅制，按 prompts 计次
+                "cost_per_1k_output": 0.0,
+                "max_tokens": 16384,
+                "timeout": 60,
+                "enabled": True,
+            },
+            # ─── 腾讯混元 ────────────────────────────────────────────────
+            "hunyuan": {
+                "name": "腾讯混元 Hunyuan",
+                "secret_id": "",
+                "secret_key": "",
+                "base_url": "https://hunyuan.cloud.tencent.com",
+                "model": "hunyuan-latest",
+                "cost_per_1k_input": 0.006,
+                "cost_per_1k_output": 0.006,
+                "max_tokens": 16384,
+                "timeout": 60,
+                "enabled": True,
+            },
+            # ─── 字节豆包 ────────────────────────────────────────────────
+            "doubao": {
+                "name": "字节豆包 Doubao",
+                "api_key": "",
+                "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+                "model": "doubao-pro-32k",
+                "cost_per_1k_input": 0.003,
+                "cost_per_1k_output": 0.003,
+                "max_tokens": 32768,
+                "timeout": 60,
+                "enabled": True,
+            },
+            # ─── Llama.cpp 本地 ─────────────────────────────────────────
+            "llama": {
+                "name": "Llama.cpp (本地)",
+                "api_key": "",
+                "base_url": "http://localhost:8080/v1",
+                "model": "Qwen3.5-9B-Q4_K_M",
+                "cost_per_1k_input": 0.0,
+                "cost_per_1k_output": 0.0,
+                "max_tokens": 4096,
+                "timeout": 120,
                 "enabled": True,
             },
         },
@@ -110,8 +207,8 @@ class Config:
             "strategy": "auto",  # auto, cost, speed, quality
             "rules": {
                 "code": "deepseek",      # 代码相关
-                "math": "deepseek-r1",   # 数学推理
-                "chinese": "kimi",       # 中文内容
+                "math": "deepseek-r1",   # 数学推理 → 用 R1
+                "chinese": "doubao",     # 中文内容（豆包便宜）
                 "english": "qwen",       # 英文内容
                 "quick": "deepseek",     # 快速问答
             }
@@ -131,6 +228,7 @@ class Config:
         self.config_dir = get_config_dir()
         self.cache_dir = get_cache_dir()
         self.sessions_dir = get_sessions_dir()
+        self.skills_dir = get_skills_dir()
         self.config_file = self.config_dir / "config.toml"
         
         self._config: Dict[str, Any] = {}
@@ -142,6 +240,7 @@ class Config:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
+        self.skills_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"配置目录: {self.config_dir}")
     
     def _load(self) -> None:
@@ -250,6 +349,99 @@ class Config:
             name for name, cfg in models.items()
             if cfg.get("enabled", True)
         ]
+    
+    def add_model(self, name: str, **kwargs) -> bool:
+        """添加自定义模型配置
+        
+        Args:
+            name: 模型标识名（如 my-openai）
+            kwargs: 模型配置参数
+                - display_name: 显示名称
+                - api_key: API Key
+                - base_url: API 地址
+                - model: 模型名称
+                - cost_per_1k_input: 输入费用
+                - cost_per_1k_output: 输出费用
+                - max_tokens: 最大 Token
+                - timeout: 超时时间
+        
+        Returns:
+            bool: 是否添加成功
+        """
+        models = self.get("models", {})
+        
+        # 检查是否已存在
+        if name in models:
+            logger.warning(f"模型 {name} 已存在，将更新配置")
+        
+        # 构建模型配置
+        model_config = {
+            "name": kwargs.get("display_name", name),
+            "api_key": kwargs.get("api_key", ""),
+            "base_url": kwargs.get("base_url", "https://api.openai.com/v1"),
+            "model": kwargs.get("model", "gpt-3.5-turbo"),
+            "cost_per_1k_input": kwargs.get("cost_per_1k_input", 0.001),
+            "cost_per_1k_output": kwargs.get("cost_per_1k_output", 0.002),
+            "max_tokens": kwargs.get("max_tokens", 4096),
+            "timeout": kwargs.get("timeout", 60),
+            "enabled": kwargs.get("enabled", True),
+            "custom": True,  # 标记为自定义模型
+        }
+        
+        # 设置到配置
+        self.set(f"models.{name}", model_config)
+        logger.info(f"已添加模型: {name}")
+        return True
+    
+    def remove_model(self, name: str) -> bool:
+        """删除模型配置
+        
+        Args:
+            name: 模型标识名
+        
+        Returns:
+            bool: 是否删除成功
+        """
+        models = self.get("models", {})
+        
+        if name not in models:
+            logger.warning(f"模型 {name} 不存在")
+            return False
+        
+        # 删除配置
+        del models[name]
+        self._config["models"] = models
+        self._save()
+        logger.info(f"已删除模型: {name}")
+        return True
+    
+    def update_model(self, name: str, **kwargs) -> bool:
+        """更新模型配置
+        
+        Args:
+            name: 模型标识名
+            kwargs: 要更新的配置参数
+        
+        Returns:
+            bool: 是否更新成功
+        """
+        models = self.get("models", {})
+        
+        if name not in models:
+            logger.warning(f"模型 {name} 不存在")
+            return False
+        
+        # 更新配置
+        for key, value in kwargs.items():
+            if key == "display_name":
+                models[name]["name"] = value
+            else:
+                models[name][key] = value
+        
+        self._config["models"] = models
+        self._save()
+        logger.info(f"已更新模型: {name}")
+        return True
     
     def get_default_model(self) -> str:
         """获取默认模型"""

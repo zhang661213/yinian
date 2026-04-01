@@ -102,8 +102,15 @@ class KimiModel(BaseModel):
                         latency_ms=(time.time() - start_time) * 1000
                     )
                 
-                data = response.json()
+                # 检测是否流式响应
+                content_type = response.headers.get("content-type", "")
+                is_streaming = "text/event-stream" in content_type or stream
                 
+                if is_streaming:
+                    return await self._chat_stream_response(response, messages, start_time)
+                
+                # 非流式响应
+                data = response.json()
                 choice = data.get("choices", [{}])[0]
                 message = choice.get("message", {})
                 content = message.get("content", "")
@@ -141,6 +148,50 @@ class KimiModel(BaseModel):
                 error=str(e),
                 latency_ms=(time.time() - start_time) * 1000
             )
+    
+    async def _chat_stream_response(
+        self,
+        response,
+        messages: List[Dict[str, str]],
+        start_time: float
+    ) -> ModelResponse:
+        """解析 Kimi SSE 流式响应"""
+        content = ""
+        
+        async for line in response.aiter_lines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("data: "):
+                data_str = line[6:]
+                if data_str == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data_str)
+                    delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    if delta:
+                        content += delta
+                except json.JSONDecodeError:
+                    continue
+                except Exception:
+                    continue
+        
+        input_tokens = self.count_tokens("\n".join([m.get("content", "") for m in messages]))
+        output_tokens = self.count_tokens(content)
+        cost = self.calculate_cost(input_tokens, output_tokens)
+        latency_ms = (time.time() - start_time) * 1000
+        
+        logger.debug(f"Kimi 流式响应: {output_tokens} tokens, 延迟: {latency_ms:.0f}ms")
+        
+        return ModelResponse(
+            content=content,
+            model=self.model_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=input_tokens + output_tokens,
+            cost=cost,
+            latency_ms=latency_ms,
+        )
     
     async def chat_stream(
         self,

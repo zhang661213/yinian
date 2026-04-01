@@ -20,6 +20,7 @@ class Message:
     timestamp: str = ""
     model: str = ""
     tokens: int = 0
+    total_tokens: int = 0
     cost: float = 0.0
     
     def __post_init__(self):
@@ -33,6 +34,7 @@ class Message:
             "timestamp": self.timestamp,
             "model": self.model,
             "tokens": self.tokens,
+            "total_tokens": self.total_tokens,
             "cost": self.cost,
         }
     
@@ -44,6 +46,7 @@ class Message:
             timestamp=data.get("timestamp", ""),
             model=data.get("model", ""),
             tokens=data.get("tokens", 0),
+            total_tokens=data.get("total_tokens", 0),
             cost=data.get("cost", 0.0),
         )
 
@@ -57,6 +60,20 @@ class Session:
     updated_at: str = ""
     total_tokens: int = 0
     total_cost: float = 0.0
+    important: bool = False          # 是否标记为重要
+    summary: str = ""              # AI 生成的会话摘要
+    auto_important_reason: str = ""  # 自动标记为重要的原因
+    
+    # 自动重要的判断阈值
+    AUTO_IMPORTANT_MIN_ROUNDS = 5      # 至少5轮对话
+    AUTO_IMPORTANT_MIN_TOKENS = 1500    # 至少消耗1500 tokens
+    AUTO_IMPORTANT_MIN_COST = 0.005     # 至少消耗 ¥0.005
+    AUTO_IMPORTANT_KEYWORDS = [
+        "代码", "bug", "架构", "设计", "方案", "部署", "测试",
+        "数据库", "接口", "API", "算法", "优化", "性能",
+        "重构", "审查", "review", "code", "git",
+        "服务器", "docker", "k8s", "CI/CD",
+    ]
     
     def __post_init__(self):
         if not self.created_at:
@@ -72,6 +89,76 @@ class Session:
         if message.cost:
             self.total_cost += message.cost
     
+    def is_important(self) -> bool:
+        """判断是否为重要会话"""
+        return self.important
+    
+    def mark_important(self, reason: str = "手动标记") -> None:
+        """标记为重要"""
+        self.important = True
+        self.auto_important_reason = reason
+        logger.info(f"会话 {self.name} 已标记为重要: {reason}")
+    
+    def unmark_important(self) -> None:
+        """取消重要标记"""
+        self.important = False
+        self.auto_important_reason = ""
+        logger.info(f"会话 {self.name} 已取消重要标记")
+    
+    def check_auto_important(self) -> bool:
+        """自动检查是否应该标记为重要（检查并自动设置）"""
+        if self.important:
+            return True
+        
+        # 1. 多轮对话
+        user_msgs = [m for m in self.messages if m.role == "user"]
+        if len(user_msgs) >= self.AUTO_IMPORTANT_MIN_ROUNDS:
+            self.mark_important(f"多轮对话（{len(user_msgs)}轮）")
+            return True
+        
+        # 2. Token 消耗
+        if self.total_tokens >= self.AUTO_IMPORTANT_MIN_TOKENS:
+            self.mark_important(f"大量 Token（{self.total_tokens}）")
+            return True
+        
+        # 3. 费用
+        if self.total_cost >= self.AUTO_IMPORTANT_MIN_COST:
+            self.mark_important(f"高消耗（¥{self.total_cost:.4f}）")
+            return True
+        
+        # 4. 关键词
+        all_text = " ".join(m.content for m in self.messages).lower()
+        matched = [kw for kw in self.AUTO_IMPORTANT_KEYWORDS if kw.lower() in all_text]
+        if matched:
+            self.mark_important(f"包含关键词：{', '.join(matched[:3])}")
+            return True
+        
+        return False
+    
+    def generate_summary_text(self) -> str:
+        """生成会话摘要文本"""
+        if len(self.messages) <= 2:
+            return "简短问答，无需摘要"
+        
+        user_msgs = [m for m in self.messages if m.role == "user"]
+        topics = [m.content[:80].strip() for m in user_msgs[:5] if m.content.strip()]
+        
+        lines = [
+            f"会话: {self.name}",
+            f"时间: {self.created_at[:19]}",
+            f"轮次: {len(user_msgs)}轮",
+            f"Token: {self.total_tokens:,} │ 费用: ¥{self.total_cost:.4f}",
+            f"重要: {'✓ 是' if self.important else '✗ 否'}",
+        ]
+        if self.messages:
+            lines.append(f"首问: {self.messages[0].content[:80].strip()}...")
+        if topics:
+            lines.append(f"话题 ({len(topics)}):")
+            for t in topics[:3]:
+                lines.append(f"  • {t[:70]}...")
+        
+        return "\n".join(lines)
+    
     def to_dict(self) -> dict:
         return {
             "name": self.name,
@@ -80,6 +167,9 @@ class Session:
             "updated_at": self.updated_at,
             "total_tokens": self.total_tokens,
             "total_cost": self.total_cost,
+            "important": self.important,
+            "summary": self.summary,
+            "auto_important_reason": self.auto_important_reason,
         }
     
     @classmethod
@@ -91,6 +181,9 @@ class Session:
             updated_at=data.get("updated_at", ""),
             total_tokens=data.get("total_tokens", 0),
             total_cost=data.get("total_cost", 0.0),
+            important=data.get("important", False),
+            summary=data.get("summary", ""),
+            auto_important_reason=data.get("auto_important_reason", ""),
         )
     
     def get_messages_for_api(self) -> List[Dict[str, str]]:
@@ -183,16 +276,109 @@ class SessionManager:
         logger.debug(f"删除会话: {name}")
         return True
     
-    def list_sessions(self) -> List[str]:
-        """列出所有会话"""
-        sessions = set(self._sessions.keys())
+    def list_sessions(self, important_only: bool = False, include_details: bool = False) -> List:
+        """列出所有会话
         
-        # 扫描会话目录
+        Args:
+            important_only: 仅返回重要的会话
+            include_details: 是否返回详细信息（用于表格显示）
+        """
+        sessions = {}
+        
+        # 从文件扫描
         if self.sessions_dir.exists():
             for f in self.sessions_dir.glob("*.json"):
-                sessions.add(f.stem)
+                try:
+                    with open(f, encoding="utf-8") as fp:
+                        data = json.load(fp)
+                    session = Session.from_dict(data)
+                    sessions[session.name] = session
+                except Exception:
+                    continue
         
-        return sorted(list(sessions))
+        # 从内存补充
+        sessions.update(self._sessions)
+        
+        # 过滤
+        if important_only:
+            sessions = {n: s for n, s in sessions.items() if s.important}
+        
+        if include_details:
+            result = []
+            for name, s in sorted(sessions.items()):
+                user_msgs = [m for m in s.messages if m.role == "user"]
+                result.append({
+                    "name": name,
+                    "important": s.important,
+                    "reason": s.auto_important_reason if s.important else "",
+                    "rounds": len(user_msgs),
+                    "tokens": s.total_tokens,
+                    "cost": s.total_cost,
+                    "updated": s.updated_at[:19] if s.updated_at else "-",
+                })
+            return result
+        
+        return sorted(sessions.keys())
+    
+    def clean_unimportant(
+        self,
+        older_than_days: int = 7,
+        keep_min: int = 5,
+        dry_run: bool = False,
+    ) -> dict:
+        """清理不重要会话
+        
+        Args:
+            older_than_days: 删除多少天前的非重要会话
+            keep_min: 最少保留多少个非重要会话
+        
+        Returns:
+            清理统计 {"deleted": N, "kept": N, "details": [...]}
+        """
+        import time as time_module
+        
+        threshold = time_module.time() - (older_than_days * 86400)
+        cutoff_date = datetime.fromtimestamp(threshold)
+        
+        # 收集所有会话
+        all_sessions = self.list_sessions(include_details=True)
+        
+        deleted = []
+        kept = []
+        
+        for info in all_sessions:
+            name = info["name"]
+            session = self.get_session(name)
+            if not session:
+                continue
+            
+            # 重要的永远保留
+            if session.important:
+                kept.append(name)
+                continue
+            
+            # 检查是否超过清理日期
+            try:
+                updated = datetime.fromisoformat(info["updated"])
+                is_old = updated < cutoff_date
+            except Exception:
+                is_old = True
+            
+            # 旧的 OR 超过最少保留数 → 删除
+            can_delete = is_old or (len(all_sessions) - len(deleted) > keep_min)
+            
+            if can_delete:
+                if not dry_run:
+                    self.delete_session(name)
+                deleted.append(name)
+            else:
+                kept.append(name)
+        
+        return {
+            "deleted": len(deleted),
+            "kept": len(kept),
+            "details": deleted,
+        }
     
     def switch_session(self, name: str) -> Session:
         """切换会话"""
@@ -236,6 +422,23 @@ class SessionManager:
     def get_history(self, limit: int = 50) -> List[Message]:
         """获取历史消息"""
         return self.current.messages[-limit:]
+    
+    def get_session_summary(self, name: str) -> str:
+        """获取会话摘要"""
+        session = self.get_session(name)
+        if not session:
+            return f"会话不存在: {name}"
+        return session.generate_summary_text()
+    
+    def mark_current_important(self, reason: str = "手动标记") -> None:
+        """标记当前会话为重要"""
+        self.current.mark_important(reason)
+        self.save_session(self._current_name)
+    
+    def unmark_current_important(self) -> None:
+        """取消当前会话的重要标记"""
+        self.current.unmark_important()
+        self.save_session(self._current_name)
 
 
 # 全局会话管理器

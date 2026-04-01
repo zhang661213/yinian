@@ -37,47 +37,50 @@ class RouterResult:
 class QuestionClassifier:
     """问题分类器"""
     
-    # 代码相关关键词
+    # 代码相关关键词（用 IGNORECASE 标志，不用 \b 避免中英混合失效）
     CODE_KEYWORDS = [
-        r"\b(python|java|javascript|js|ts|typescript|c\+\+|cpp|c#|go|rust|ruby|php|swift|kotlin|sql|html|css|react|vue|angular|node|django|flask|spring)\b",
-        r"\b(函数|方法|类|变量|数组|对象|接口|模块|包|库|代码|编程|开发|程序|算法|数据结构|递归|循环|排序|查找)\b",
-        r"\b(def|class|import|from|return|if|else|for|while|try|except|finally|with|as|lambda|yield)\b",
-        r"\b(code|function|class|variable|array|object|method|api|loop|recursive|algorithm)\b",
-        r"\b(编写|写一个|如何写|怎么写|实现|调用|执行|运行|编译|调试|debug)\b",
-        r"`{3}", r"```\w+",  # 代码块
-        r"\b(linux|git|docker|kubernetes|k8s|nginx|apache|mysql|redis|mongodb|postgresql)\b",
+        # 编程语言
+        r"(python|java|javascript|js|ts|typescript|c\+\+|cpp|c#|go|rust|ruby|php|swift|kotlin|sql|html|css|react|vue|angular|node|django|flask|spring)",
+        # 中文代码词
+        r"(函数|方法|类|变量|数组|对象|接口|模块|包|库|代码|编程|开发|程序|算法|数据结构|递归|循环|排序|查找)",
+        # 英文代码词
+        r"(def|class|import|from|return|if|else|for|while|try|except|finally|with|as|lambda|yield|code|function|variable|array|object|method|api|loop|recursive|algorithm)",
+        # 中文编程动作
+        r"(编写|写一个|如何写|怎么写|实现|调用|执行|运行|编译|调试|debug)",
+        # 代码块标记
+        r"```",
+        # 工具/软件
+        r"(linux|git|docker|kubernetes|k8s|nginx|apache|mysql|redis|mongodb|postgresql)",
     ]
     
     # 数学相关关键词
     MATH_KEYWORDS = [
-        r"\b(数学|计算|求解|方程|函数|几何|代数|微积分|积分|导数|概率|统计|排列组合|矩阵|向量)\b",
-        r"\b(证明|推导|计算|算法|推理|逻辑|博弈|优化|最小化|最大化)\b",
-        r"\b(数学题|奥数|高考数学|考研数学|math|equation|calculate|solve|formula)\b",
+        r"(数学|计算|求解|方程|函数|几何|代数|微积分|积分|导数|概率|统计|排列组合|矩阵|向量|证明|推导|算法|推理|逻辑|博弈|优化)",
+        r"(math|equation|calculate|solve|formula|sin|cos|tan|log|ln|sqrt)",
         r"[\+\-\*\/\=\^√∑∏∫]",  # 数学符号
-        r"\b(\d+\^|\d+!|sin|cos|tan|log|ln|sqrt)\b",
+        r"(\d+\^|\d+!)",  # 指数和阶乘
     ]
     
     # 中文内容关键词
     CHINESE_KEYWORDS = [
-        r"[\u4e00-\u9fff]",  # 中文字符
-        r"\b(中文|汉语|翻译成中文|用中文|中文回答)\b",
-        r"\b(写一篇|写一首|写一封信|写文案|写文章|写作文|写故事|写小说)\b",
-        r"\b(总结|概括|归纳|缩写|扩写|改写)\b",
+        r"[\u4e00-\u9fff]",  # 中文字符（任何连续中文）
+        r"(中文|汉语|翻译成中文|用中文|中文回答|中文写作)",
+        r"(写一篇|写一首|写一封信|写文案|写文章|写作文|写故事|写小说)",
+        r"(总结|概括|归纳|缩写|扩写|改写)",
     ]
     
     # 英文内容关键词
     ENGLISH_KEYWORDS = [
-        r"\b(translate to english|english|翻译成英文|用英文)\b",
-        r"\b(write an? |article|essay|blog|post|story|novel)\b",
-        r"\b(english writing|english content|英文写作)\b",
+        r"(translate to english|translation to english|translate to chinese)",
+        r"(write an article|write an essay|write a blog|write a post|write a story|write a novel)",
+        r"(article|essay|blog post|english writing|english content)",
     ]
     
     # 快速问答关键词
     QUICK_KEYWORDS = [
-        r"\b(是什么|who is|what is|什么是|什么叫|请问|问一下)\b",
-        r"\b(帮我查|查询|搜索|查找|找一下)\b",
-        r"\b(解释|说明|讲讲|介绍一下)\b",
-        r"^(?!.*[\u4e00-\u9fff]).{0,50}[?？]",  # 短句英文问句
+        r"(是什么|who is|what is|什么是|什么叫|请问|问一下|帮我查|查询|搜索|查找)",
+        r"(解释|说明|讲讲|介绍一下)",
+        r"^[A-Za-z0-9\s]{0,50}[?？]$",  # 短句英文问句（不含中文）
     ]
     
     def __init__(self):
@@ -109,10 +112,9 @@ class QuestionClassifier:
             QuestionType.QUICK: 0.0,
         }
         
-        # 代码检测（高优先级）
+        # 代码检测（最高优先级）
         if self.code_pattern.search(question):
-            scores[QuestionType.CODE] = 0.9
-            # 检查是否是代码片段
+            scores[QuestionType.CODE] = 0.95
             if "```" in question or "`" in question:
                 scores[QuestionType.CODE] = 1.0
         
@@ -120,16 +122,16 @@ class QuestionClassifier:
         if self.math_pattern.search(question):
             scores[QuestionType.MATH] = 0.85
         
-        # 中文内容检测
-        chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", question))
-        total_chars = len(question)
-        if total_chars > 0:
-            chinese_ratio = chinese_chars / total_chars
-            if chinese_ratio > 0.3:
-                scores[QuestionType.CHINESE] = min(0.7, chinese_ratio)
-        
-        if self.chinese_pattern.search(question):
-            scores[QuestionType.CHINESE] = max(scores[QuestionType.CHINESE], 0.8)
+        # 中文内容检测（低优先级，不覆盖代码检测）
+        if scores[QuestionType.CODE] < 0.5:
+            chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", question))
+            total_chars = len(question)
+            if total_chars > 0:
+                chinese_ratio = chinese_chars / total_chars
+                if chinese_ratio > 0.3:
+                    scores[QuestionType.CHINESE] = min(0.7, chinese_ratio)
+            if self.chinese_pattern.search(question):
+                scores[QuestionType.CHINESE] = max(scores[QuestionType.CHINESE], 0.8)
         
         # 英文内容检测
         if self.english_pattern.search(question):
@@ -192,12 +194,16 @@ class Router:
             "general": "deepseek",
         })
     
-    def route(self, question: str) -> RouterResult:
+    def route(self, question: str, cheap: bool = False) -> RouterResult:
         """
         路由问题到最合适的模型
         
+        智能适配：根据用户实际配置的模型动态决定路由，
+        优先使用有 API Key 的模型，同时保持任务类型适配性。
+        
         Args:
             question: 用户问题
+            cheap: True=选最便宜的, False=选配置指定的模型
             
         Returns:
             RouterResult: 路由结果
@@ -206,25 +212,22 @@ class Router:
         qtype, confidence = self.classifier.classify(question)
         reason = self.classifier.get_reason(question, qtype)
         
-        # 获取对应模型
-        model_key = qtype.value
-        model_name = self.rules.get(model_key, self.rules.get("general", "deepseek"))
-        
-        # 验证模型是否可用
         available_models = self.factory.list_enabled_models()
-        if model_name not in available_models:
-            logger.warning(f"路由模型 {model_name} 不可用，尝试备用")
-            if available_models:
-                model_name = available_models[0]
-            else:
-                model_name = self.config.get_default_model()
+        
+        # 获取对应模型
+        if cheap:
+            # --fast 模式：按任务类型选最便宜的
+            model_name = self._find_cheapest_for_type(qtype, available_models)
+        else:
+            # 正常模式：按任务类型选最合适的（考虑偏好）
+            model_name = self._find_best_for_type(qtype, available_models)
         
         # 构建备用模型列表
         fallback = [m for m in available_models if m != model_name]
         
         logger.debug(
             f"路由结果: 问题类型={qtype.value}, "
-            f"模型={model_name}, 置信度={confidence:.2f}"
+            f"模型={model_name}, 置信度={confidence:.2f}, cheap={cheap}"
         )
         
         return RouterResult(
@@ -234,6 +237,116 @@ class Router:
             reason=reason,
             fallback_models=fallback
         )
+    
+    # 各问题类型偏好的模型列表（按优先级排序，优先选有 key 的）
+    # 这个列表体现了"最适合"而非"最便宜"
+    TYPE_PREFERENCE = {
+        "code": ["zhipu", "deepseek", "qwen", "kimi", "doubao"],
+        "math": ["deepseek", "zhipu", "qwen", "kimi", "doubao"],
+        "chinese": ["doubao", "kimi", "deepseek", "qwen", "zhipu"],
+        "english": ["qwen", "zhipu", "deepseek", "doubao", "kimi"],
+        "quick": ["deepseek", "qwen", "zhipu", "doubao", "kimi"],
+        "general": ["deepseek", "qwen", "zhipu", "doubao", "kimi"],
+    }
+    
+    def _find_best_for_type(
+        self,
+        qtype: "QuestionType",
+        available_models: List[str]
+    ) -> str:
+        """
+        针对问题类型，智能选最合适的模型。
+        
+        策略：
+        1. 从 TYPE_PREFERENCE 读取该类型的偏好模型列表
+        2. 在偏好列表中，找第一个有真实 API Key 的模型
+        3. 如果偏好列表都没有 Key → 从 available_models 中选最便宜的
+        4. 如果 available_models 也没有 → 用本地模型
+        """
+        if not available_models:
+            # 没有任何云端模型 → 用本地模型
+            return self._get_local_fallback()
+        
+        # 获取该问题类型偏好的模型列表
+        preference = self.TYPE_PREFERENCE.get(qtype.value, self.TYPE_PREFERENCE["general"])
+        
+        # 第一步：在偏好列表中找有 API Key 的
+        for name in preference:
+            if name not in available_models:
+                continue
+            info = self.factory.get_model_info(name)
+            if not info:
+                continue
+            if info.get("is_local", False):
+                continue  # 跳过本地模型
+            if info["has_api_key"]:
+                logger.debug(f"路由 [{qtype.value}]: 偏好模型 {name} 有 API Key，直接使用")
+                return name
+        
+        # 第二步：没有偏好模型有 Key，按费用排序选最便宜的
+        candidates = []
+        for name in available_models:
+            info = self.factory.get_model_info(name)
+            if not info or info.get("is_local", False):
+                continue
+            if info["has_api_key"]:
+                total = info["cost_per_1k_input"] + info["cost_per_1k_output"]
+                candidates.append((total, name))
+        
+        if candidates:
+            candidates.sort(key=lambda x: x[0])
+            cheapest = candidates[0][1]
+            logger.debug(f"路由 [{qtype.value}]: 偏好模型都无 Key，选用最便宜的 {cheapest}")
+            return cheapest
+        
+        # 第三步：没有任何有 Key 的云端模型 → 用本地模型
+        return self._get_local_fallback()
+    
+    def _get_local_fallback(self) -> str:
+        """获取本地模型兜底"""
+        for name in self.factory.list_models():
+            info = self.factory.get_model_info(name)
+            if info and info.get("is_local", False):
+                return name
+        return "deepseek"
+    
+    def _find_cheapest_for_type(
+        self,
+        qtype: "QuestionType",
+        available_models: List[str]
+    ) -> str:
+        """
+        针对问题类型，选最便宜的模型（忽略偏好，直接按费用排序）。
+        
+        策略：
+        1. 从 available_models 中筛选有 API Key 的云端模型
+        2. 按 (input_cost + output_cost) 升序排列
+        3. 返回最便宜的；如果没有有 Key 的模型 → 用本地模型
+        """
+        if not available_models:
+            return self._get_local_fallback()
+        
+        candidates = []
+        for name in available_models:
+            info = self.factory.get_model_info(name)
+            if not info:
+                continue
+            if info.get("is_local", False):
+                continue
+            if not info["has_api_key"]:
+                continue
+            total = info["cost_per_1k_input"] + info["cost_per_1k_output"]
+            candidates.append((total, name, info))
+        
+        if not candidates:
+            return self._get_local_fallback()
+        
+        # 按总费用升序，相同费用按偏好顺序
+        preference = self.TYPE_PREFERENCE.get(qtype.value, [])
+        candidates.sort(key=lambda x: (x[0], preference.index(x[1]) if x[1] in preference else 999))
+        
+        logger.debug(f"路由 [{qtype.value}] (cheap): 选用最便宜的 {candidates[0][1]} (¥{candidates[0][0]:.4f}/1K)")
+        return candidates[0][1]
     
     def route_with_models(
         self,

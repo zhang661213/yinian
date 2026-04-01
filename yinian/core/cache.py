@@ -29,13 +29,15 @@ class CacheEntry:
     created_at: str = ""
     expires_at: str = ""
     hit_count: int = 0
+    _ttl_hours: int = 24  # 内部字段，不存入 DB
     
     def __post_init__(self):
         if not self.created_at:
             self.created_at = datetime.now().isoformat()
         if not self.expires_at:
-            ttl_hours = get_config().get("cache.ttl_hours", 24)
-            expires = datetime.now() + timedelta(hours=ttl_hours)
+            # 不再调用 get_config()，使用缓存的 ttl 或默认值 24
+            ttl = getattr(self, '_ttl_hours', 24)
+            expires = datetime.now() + timedelta(hours=ttl)
             self.expires_at = expires.isoformat()
     
     def is_expired(self) -> bool:
@@ -318,6 +320,7 @@ class Cache:
             output_tokens=output_tokens,
             cost=cost,
             latency_ms=latency_ms,
+            _ttl_hours=self.config.get("cache.ttl_hours", 24),
         )
         
         return self.db.set(entry)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yinian"
-version = "0.1.0"
+version = "0.1.2"
 description = "最省钱的 AI 助手 CLI — 自动选模型、智能省 Token、管道友好"
 readme = "README.md"
 license = {text = "MIT"}

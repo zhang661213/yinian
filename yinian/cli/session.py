@@ -92,3 +92,40 @@ def session_delete(name: str):
         console.print(f"[green]✓ 会话已删除: {name}[/green]")
     else:
         console.print(f"[red]会话不存在: {name}[/red]")
+
+
+@session_group.command(name="clean")
+@click.option("--older-than", "-d", default=0, type=int, help="删除多少天前不重要会话（0=全部不重要的）")
+@click.option("--keep", "-k", default=5, type=int, help="至少保留多少个不重要会话")
+@click.option("--dry-run", is_flag=True, help="仅预览，不实际删除")
+@click.option("--all", is_flag=True, help="清理所有不重要的会话（包括最近的）")
+def session_clean(older_than: int, keep: int, dry_run: bool, all: bool):
+    """清理不重要会话文件（自动跳过重要的）
+    
+    示例:
+      yinian session clean              # 预览将被删除的不重要会话
+      yinian session clean --older-than 7  # 删除7天前的不重要会话
+      yinian session clean --dry-run        # 预览并确认
+    """
+    manager = get_session_manager()
+    
+    # 清理不重要会话
+    days = 0 if all else older_than
+    result = manager.clean_unimportant(older_than_days=days, keep_min=keep)
+    
+    if not result["details"] and result["deleted"] == 0:
+        console.print("[green]没有需要清理的会话[/green]")
+        return
+    
+    if dry_run:
+        console.print(f"\n[yellow]将清理以下 {result['deleted']} 个不重要会话：[/yellow]\n")
+        table = Table(show_header=True)
+        table.add_column("会话名")
+        for name in result["details"]:
+            table.add_row(name)
+        console.print(table)
+        console.print(f"\n[dim]保留 {result['kept']} 个会话（包括重要的）[/dim]")
+        console.print(f"[dim]使用不加 --dry-run 正式删除[/dim]\n")
+    else:
+        console.print(f"[green]✓ 已清理 {result['deleted']} 个不重要会话[/green]")
+        console.print(f"[dim]保留了 {result['kept']} 个会话（包括重要的）[/dim]")

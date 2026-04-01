@@ -69,8 +69,32 @@ class StreamOutput:
         self._print_stats(response)
     
     def _is_code(self, text: str) -> bool:
-        """判断是否为代码"""
-        return "```" in text or text.startswith("    ") or "def " in text or "class " in text
+        """判断是否为代码
+        
+        严格判断：必须有以下特征之一才认为是代码
+        1. 有代码块标记（```）——最可靠
+        2. 有缩进的行且包含明确的代码特征（关键字/符号）
+        """
+        # 有代码块标记 → 肯定是代码
+        if "```" in text:
+            return True
+        
+        # 检查是否有明显的代码特征（同时满足：缩进+代码关键字）
+        code_keywords = (
+            "def ", "class ", "import ", "from ", "return ",
+            "if ", "else:", "elif ", "for ", "while ",
+            "async ", "await ", "async def",
+            "const ", "let ", "var ", "function ",
+            "fn ", "pub ", "struct ", "impl ",
+            "func ", "package ", "func ", "interface ",
+        )
+        has_indent = "\n    " in text or text.startswith("    ")
+        has_keyword = any(kw in text for kw in code_keywords)
+        
+        # 多个代码关键字同时出现才判定为代码（避免 "def" 在普通文本中出现）
+        keyword_count = sum(1 for kw in code_keywords if kw in text)
+        
+        return has_indent and keyword_count >= 1
     
     def _is_markdown(self, text: str) -> bool:
         """判断是否为 Markdown"""
