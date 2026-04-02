@@ -4,10 +4,9 @@ Yinian MCP Client - MCP 客户端实现
 使 Yinian 可以连接到 MCP Servers 并调用其工具
 """
 import asyncio
-import json
+import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Callable, Awaitable
-from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -45,140 +44,158 @@ class YinianMCPClient:
     """
     Yinian MCP 客户端
     
-    负责：
-    1. 连接到 MCP 服务器
-    2. 发现可用工具
-    3. 调用工具
-    4. 管理连接生命周期
+    使用临时连接模式：每次调用创建新连接，
+    避免复杂的异步生命周期管理问题。
     """
     
     def __init__(self, config: Optional[MCPConfig] = None):
         self.config = config or get_mcp_config()
-        self._sessions: Dict[str, ClientSession] = {}
-        self._tools: Dict[str, MCPToolInfo] = {}  # tool_name -> info
-        self._connected: Dict[str, bool] = {}
-        self._lock = asyncio.Lock()
     
-    async def connect(self, server_name: str) -> bool:
-        """
-        连接到 MCP 服务器
+    def _ensure_node_in_path(self):
+        """确保 Node.js 在 PATH 中"""
+        node_path = "C:\\Program Files\\nodejs"
+        if node_path not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = node_path + os.pathsep + os.environ.get("PATH", "")
+    
+    async def _connect_and_call(
+        self,
+        server_name: str,
+        tool_name: str,
+        arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """内部方法：创建连接并调用工具"""
         
-        Args:
-            server_name: 服务器名称
+        server_config = self.config.get_server(server_name)
+        if not server_config:
+            return {"success": False, "error": f"服务器配置不存在: {server_name}"}
+        
+        if not server_config.enabled:
+            return {"success": False, "error": f"服务器已禁用: {server_name}"}
+        
+        # 确保 Node.js 在 PATH 中
+        self._ensure_node_in_path()
+        
+        try:
+            params = StdioServerParameters(
+                command=server_config.command,
+                args=server_config.args,
+                env=server_config.env if server_config.env else None,
+            )
             
-        Returns:
-            是否连接成功
-        """
-        async with self._lock:
-            if server_name in self._sessions:
-                logger.debug(f"MCP 服务器 {server_name} 已连接")
-                return True
-            
-            server_config = self.config.get_server(server_name)
-            if not server_config:
-                logger.error(f"MCP 服务器配置不存在: {server_name}")
-                return False
-            
-            if not server_config.enabled:
-                logger.warning(f"MCP 服务器已禁用: {server_name}")
-                return False
-            
-            try:
-                logger.info(f"正在连接 MCP 服务器: {server_name}")
-                
-                # 创建服务器参数
-                params = StdioServerParameters(
-                    command=server_config.command,
-                    args=server_config.args,
-                    env=server_config.env if server_config.env else None,
-                )
-                
-                # 连接
-                async with stdio_client(params) as (read, write):
-                    async with ClientSession(read, write) as session:
-                        # 初始化
-                        await session.initialize()
-                        
-                        # 获取工具列表
-                        tools_response = await session.list_tools()
-                        
-                        # 存储 session
-                        self._sessions[server_name] = session
-                        self._connected[server_name] = True
-                        
-                        # 注册工具
-                        for tool in tools_response.tools:
-                            tool_info = MCPToolInfo(
-                                name=tool.name,
-                                description=tool.description or "",
-                                input_schema=tool.inputSchema or {},
-                                server_name=server_name,
-                            )
-                            self._tools[tool.name] = tool_info
-                        
-                        logger.info(
-                            f"MCP 服务器 {server_name} 已连接，发现 {len(tools_response.tools)} 个工具"
-                        )
-                        return True
-                        
-            except Exception as e:
-                logger.error(f"连接 MCP 服务器 {server_name} 失败: {e}")
-                return False
-    
-    async def disconnect(self, server_name: str) -> bool:
-        """断开 MCP 服务器连接"""
-        async with self._lock:
-            if server_name in self._sessions:
-                try:
-                    del self._sessions[server_name]
-                    self._connected[server_name] = False
+            async with stdio_client(params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
                     
-                    # 移除该服务器的工县
-                    self._tools = {
-                        k: v for k, v in self._tools.items()
-                        if v.server_name != server_name
+                    # 调用工具
+                    result = await session.call_tool(tool_name, arguments)
+                    
+                    # 解析结果
+                    contents = []
+                    for content in result.content:
+                        if isinstance(content, MCPToolContent):
+                            contents.append({
+                                "type": content.type,
+                                "text": content.text,
+                            })
+                        else:
+                            contents.append(str(content))
+                    
+                    return {
+                        "success": True,
+                        "tool": tool_name,
+                        "server": server_name,
+                        "result": contents,
                     }
                     
-                    logger.info(f"已断开 MCP 服务器: {server_name}")
+        except Exception as e:
+            logger.error(f"调用 MCP 工具 {tool_name} 失败: {e}")
+            return {
+                "success": False,
+                "tool": tool_name,
+                "error": str(e),
+            }
+    
+    async def connect(self, server_name: str) -> bool:
+        """连接到 MCP 服务器并返回工具列表"""
+        
+        server_config = self.config.get_server(server_name)
+        if not server_config:
+            logger.error(f"服务器配置不存在: {server_name}")
+            return False
+        
+        if not server_config.enabled:
+            logger.warning(f"服务器已禁用: {server_name}")
+            return False
+        
+        self._ensure_node_in_path()
+        
+        try:
+            params = StdioServerParameters(
+                command=server_config.command,
+                args=server_config.args,
+                env=server_config.env if server_config.env else None,
+            )
+            
+            async with stdio_client(params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    tools_response = await session.list_tools()
+                    
+                    logger.info(
+                        f"MCP 服务器 {server_name} 已连接，发现 {len(tools_response.tools)} 个工具"
+                    )
                     return True
-                except Exception as e:
-                    logger.error(f"断开 MCP 服务器 {server_name} 失败: {e}")
-                    return False
+                    
+        except Exception as e:
+            logger.error(f"连接 MCP 服务器 {server_name} 失败: {e}")
             return False
     
-    async def connect_all(self) -> Dict[str, bool]:
-        """连接所有已启用的服务器"""
-        results = {}
-        servers = self.config.list_servers(enabled_only=True)
+    async def list_tools(self, server_name: str) -> List[MCPToolInfo]:
+        """获取服务器的工具列表"""
         
-        for name in servers:
-            results[name] = await self.connect(name)
+        server_config = self.config.get_server(server_name)
+        if not server_config:
+            return []
         
-        return results
+        self._ensure_node_in_path()
+        
+        try:
+            params = StdioServerParameters(
+                command=server_config.command,
+                args=server_config.args,
+                env=server_config.env if server_config.env else None,
+            )
+            
+            async with stdio_client(params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    tools_response = await session.list_tools()
+                    
+                    return [
+                        MCPToolInfo(
+                            name=tool.name,
+                            description=tool.description or "",
+                            input_schema=tool.inputSchema or {},
+                            server_name=server_name,
+                        )
+                        for tool in tools_response.tools
+                    ]
+                    
+        except Exception as e:
+            logger.error(f"获取工具列表失败: {e}")
+            return []
+    
+    async def disconnect(self, server_name: str) -> bool:
+        """断开连接（临时连接模式下无操作）"""
+        return True
     
     async def disconnect_all(self) -> None:
-        """断开所有服务器连接"""
-        async with self._lock:
-            for name in list(self._sessions.keys()):
-                await self.disconnect(name)
+        """断开所有连接（临时连接模式下无操作）"""
+        pass
     
-    def list_tools(self, server_name: Optional[str] = None) -> List[MCPToolInfo]:
-        """
-        列出可用工具
-        
-        Args:
-            server_name: 可选，筛选特定服务器的工具
-            
-        Returns:
-            工具信息列表
-        """
-        if server_name:
-            return [t for t in self._tools.values() if t.server_name == server_name]
-        return list(self._tools.values())
-    
-    def get_tool(self, tool_name: str) -> Optional[MCPToolInfo]:
-        """获取工具信息"""
-        return self._tools.get(tool_name)
+    def list_tools_sync(self, server_name: str) -> List[MCPToolInfo]:
+        """同步版本：获取工具列表"""
+        return asyncio.run(self.list_tools(server_name))
     
     async def call_tool(
         self,
@@ -188,77 +205,47 @@ class YinianMCPClient:
         """
         调用 MCP 工具
         
-        Args:
-            tool_name: 工具名称
-            arguments: 工具参数
-            
-        Returns:
-            工具执行结果
+        注意：这个方法需要知道工具属于哪个服务器。
+        目前需要通过其他方式确定服务器名称。
         """
-        tool_info = self._tools.get(tool_name)
-        if not tool_info:
-            return {
-                "success": False,
-                "error": f"工具不存在: {tool_name}"
-            }
+        # 简化版本：尝试每个已启用的服务器
+        servers = self.config.list_servers(enabled_only=True)
         
-        server_name = tool_info.server_name
-        if server_name not in self._sessions:
-            # 尝试连接
-            connected = await self.connect(server_name)
-            if not connected:
-                return {
-                    "success": False,
-                    "error": f"无法连接到服务器: {server_name}"
-                }
+        for server_name in servers:
+            result = await self._connect_and_call(server_name, tool_name, arguments)
+            if result["success"]:
+                return result
         
-        try:
-            session = self._sessions[server_name]
-            
-            logger.debug(f"调用 MCP 工具: {tool_name}({arguments})")
-            
-            result = await session.call_tool(tool_name, arguments)
-            
-            # 解析结果
-            contents = []
-            for content in result.content:
-                if isinstance(content, MCPToolContent):
-                    contents.append({
-                        "type": content.type,
-                        "text": content.text,
-                    })
-                else:
-                    contents.append(str(content))
-            
-            return {
-                "success": True,
-                "tool": tool_name,
-                "server": server_name,
-                "result": contents,
-            }
-            
-        except Exception as e:
-            logger.error(f"调用 MCP 工具 {tool_name} 失败: {e}")
-            return {
-                "success": False,
-                "tool": tool_name,
-                "error": str(e),
-            }
+        return {
+            "success": False,
+            "tool": tool_name,
+            "error": "工具不存在或所有服务器均不可用"
+        }
     
-    @property
-    def is_connected(self) -> bool:
-        """检查是否有活跃连接"""
-        return any(self._connected.values())
+    async def call_tool_on_server(
+        self,
+        server_name: str,
+        tool_name: str,
+        arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """在指定服务器上调用工具"""
+        return await self._connect_and_call(server_name, tool_name, arguments)
+    
+    def call_tool_sync(
+        self,
+        server_name: str,
+        tool_name: str,
+        arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """同步版本：在指定服务器上调用工具"""
+        return asyncio.run(self._connect_and_call(server_name, tool_name, arguments))
     
     def get_status(self) -> Dict[str, Any]:
-        """获取连接状态"""
+        """获取连接状态（临时模式总是返回未连接）"""
         return {
-            "connected_servers": list(self._sessions.keys()),
-            "total_tools": len(self._tools),
-            "tools_by_server": {
-                name: len([t for t in self._tools.values() if t.server_name == name])
-                for name in self._sessions.keys()
-            },
+            "connected_servers": [],
+            "total_tools": 0,
+            "tools_by_server": {},
         }
 
 

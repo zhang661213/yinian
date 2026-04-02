@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 from rich import print as rprint
 
-from yinian.mcp import YinianMCPClient, MCPConfig
+from yinian.mcp import YinianMCPClient, MCPConfig, get_mcp_client
 from yinian.mcp.config import get_mcp_config
 
 console = Console()

@@ -379,11 +379,11 @@
 - [x] MCP CLI 命令组 ✅
 - [x] 集成到主 CLI ✅
 
-#### Day 17-18：MCP 核心功能 (Phase 2) 🔄
-- [ ] STDIO 传输连接
-- [ ] 工具发现与调用
-- [ ] 连接 Filesystem Server 测试
-- [ ] 连接 Git Server 测试
+#### Day 17-18：MCP 核心功能 (Phase 2) ✅
+- [x] STDIO 传输连接 ✅
+- [x] 工具发现与调用 ✅
+- [x] 连接 Filesystem Server 测试 ✅
+- [ ] 连接 Git Server 测试 ⏳
 
 ---
 
@@ -399,6 +399,14 @@
 ---
 
 ## 📝 更新日志
+
+### v0.3.0 (2026-04-03)
+- ✨ MCP Phase 2 完成
+  - STDIO 传输连接
+  - 工具发现与调用
+  - Filesystem MCP Server 完全可用
+  - 支持 list_directory/read_file/search_files/directory_tree 等 14 个工具
+  - 注意：MCP 服务器路径需为 ASCII（避免中文路径问题）
 
 ### v0.2.0 (2026-04-02)
 - ✨ MCP 支持：Phase 1 完成

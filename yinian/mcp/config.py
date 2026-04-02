@@ -50,7 +50,11 @@ class MCPConfig:
         "filesystem": {
             "name": "filesystem",
             "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+            "args": [
+                "-y", "@modelcontextprotocol/server-filesystem",
+                "E:\\AI\\airc",  # 项目目录
+                "C:\\Users\\Public",  # 公共目录
+            ],
             "description": "本地文件系统访问",
             "enabled": True,
         },
