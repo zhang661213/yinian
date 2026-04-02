@@ -13,6 +13,7 @@ from yinian.cli.stats import stats_group
 from yinian.cli.cache import cache_group
 from yinian.cli.sync import models_sync
 from yinian.cli.skill import skill_group
+from yinian.cli.mcp import mcp_group
 
 console = Console()
 
@@ -69,6 +70,7 @@ cli.add_command(stats_group, name="stats")
 cli.add_command(cache_group, name="cache")
 cli.add_command(shell, name="shell")
 cli.add_command(skill_group, name="skill")
+cli.add_command(mcp_group, name="mcp")
 
 
 @cli.command(name="doctor")

@@ -369,6 +369,22 @@
 - [ ] 文档完善
 - [ ] GitHub Release
 
+### Week 5：MCP 集成 (Phase 1) ✅ NEW
+
+#### Day 15-16：MCP 基础框架 ✅
+- [x] MCP Python SDK 安装 ✅
+- [x] `yinian/mcp/` 模块骨架 ✅
+- [x] `MCPConfig` 配置管理 ✅
+- [x] `YinianMCPClient` 客户端实现 ✅
+- [x] MCP CLI 命令组 ✅
+- [x] 集成到主 CLI ✅
+
+#### Day 17-18：MCP 核心功能 (Phase 2) 🔄
+- [ ] STDIO 传输连接
+- [ ] 工具发现与调用
+- [ ] 连接 Filesystem Server 测试
+- [ ] 连接 Git Server 测试
+
 ---
 
 ## 🐛 Bug 追踪
@@ -383,6 +399,13 @@
 ---
 
 ## 📝 更新日志
+
+### v0.2.0 (2026-04-02)
+- ✨ MCP 支持：Phase 1 完成
+  - MCP Python SDK 集成
+  - `yinian/mcp/` 模块
+  - MCP CLI 命令组 (`yinian mcp list/connect/call` 等)
+  - 支持 Filesystem/Git/GitHub 等 MCP Servers
 
 ### v0.1.2 (2026-04-02)
 - 🐛 Bug 修复：MiniMax 类默认值 base_url 补全 v1 版本号

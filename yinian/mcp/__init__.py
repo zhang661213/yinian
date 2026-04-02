@@ -1,0 +1,9 @@
+"""
+Yinian MCP - Model Context Protocol 支持模块
+
+为 Yinian 提供 MCP 协议支持，使其可以连接 MCP Servers
+"""
+from yinian.mcp.client import YinianMCPClient
+from yinian.mcp.config import MCPConfig
+
+__all__ = ["YinianMCPClient", "MCPConfig"]
