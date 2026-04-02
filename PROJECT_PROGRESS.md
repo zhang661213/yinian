@@ -378,10 +378,14 @@
 | BUG-001 | MiniMax API 响应解析错误：流式响应 content-type 为 event-stream，但代码先调用 response.json() 导致失败 | ✅ 已修复 | v0.1.1 |
 | BUG-002 | MiniMax 流式 chunk 数据结构为 `choices[0].delta.content`，原代码错误解析为 `messages[0].text` | ✅ 已修复 | v0.1.1 |
 | BUG-003 | MiniMax base_url 缺少版本号 v1 | ✅ 已修复 | v0.1.1 |
+| BUG-004 | MiniMax 类默认值 base_url="https://api.minimax.chat/v" 缺少 v1（与 config.py 不一致） | ✅ 已修复 | v0.1.2 |
 
 ---
 
 ## 📝 更新日志
+
+### v0.1.2 (2026-04-02)
+- 🐛 Bug 修复：MiniMax 类默认值 base_url 补全 v1 版本号
 
 ### v0.1.0 (2026-03-30)
 - ✅ 项目初始化

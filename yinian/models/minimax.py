@@ -15,7 +15,7 @@ class MiniMaxModel(BaseModel):
     
     model_name = "minimax"
     display_name = "MiniMax"
-    base_url = "https://api.minimax.chat/v"
+    base_url = "https://api.minimax.chat/v1"  # MiniMax API v1 版本
     model_id = "abab6.5s-chat"
     cost_per_1k_input = 0.01
     cost_per_1k_output = 0.01
